@@ -8,6 +8,8 @@ Quick points:
   chords one has to memorize to grasp the skill of chording in the English language for most of their typing.
 ## Credit
 Some modification of prefix and suffix list from this [gist](https://gist.github.com/kevinflo/5cfe332a7eb2239a6da6).
+Pretty comprehensive list of roots (1020 of them, not considering prefix/infix/suffix duplicates): https://membean.com/roots/
+
 
 Java 2 Kotlin conversion from this [code](https://github.com/javiermartinezruiz/SearchPrefixInDictionary/blob/master/src/com/company/Main.java) 
 to find words that match a prefix (to show usefulness of chording in "fixs").
