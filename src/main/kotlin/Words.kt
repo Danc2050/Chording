@@ -11,6 +11,25 @@ import java.util.stream.Collectors
 /**
  * This program search for a prefix in a group of words in an optimal way
  */
+
+val L_pinky = setOf("numshift", "ambithrow", "shift", "alt")
+val L_ring = setOf("ctrl", ",", ".", "u")
+val L_middle= setOf("del", "-", "o", "i")
+val L_index= setOf("bs", "space", "e", "r")
+val LT1= setOf("v", "m", "c", "k")
+val LT2= setOf("click", "g", "z", "w")
+val RT1= setOf("p", "f", "d", "h")
+val RT2= setOf("x", "b", "q", "dup")
+val R_index= setOf("enter", "a", "t", "space")
+val R_middle= setOf("tab", "l", "n", "j")
+val R_ring= setOf("ctrl", "y", "s", ";")
+val R_pinky = setOf("alt", "shift", "ambithrow", "numshift")
+val fingers = setOf(L_pinky, L_ring, L_middle, L_index, LT1, LT2, RT1, RT2, R_index, R_middle, R_ring, R_pinky)
+
+// should consider all prefixes maybe (in addition to or substitute to)
+var howManyCanBeTypedGreaterThan50WithASinglePrefix = 0
+var uniqueRootsToDoAbove = mutableSetOf<String>()
+
 object Main {
     private fun findValues(words: MutableSet<String>, prefix: String): List<String> {
         //Transform list to map ignoring repeated words
@@ -33,31 +52,58 @@ object Main {
         val values: List<String> = subMap.values.stream().collect(Collectors.toList()) as List<String>
         return values
     }
-    fun findSingleFix(words: MutableSet<String>, fix: String) {
-        for (word in words) {
-            var start = 0
-            do {
-                val index = word.indexOf(fix, start)
-                start = index+1
-                if (index == 0) {
-                    println("Word: $word, fix $fix")
-                    println("Prefix")
-                } else if (index == word.length - fix.length) {
-                    println("Word: $word, fix $fix")
-                    println("Suffix")
-                } else {
-                    println("Word: $word, fix $fix")
-                    println("Infix")
-                }
-            } while (index != -1)
+    fun findSingleFix(word: String, fixDictionary: MutableSet<String>) {
+        /* For now, keep track of all of our roots in a word...later decide how to build the whole word via a chord and use
+            roots of certain length (e.g., max 5).
+         */
+        var wordCombinations = mutableSetOf<String>()
+        var tmpWord = word
+        while (tmpWord.isNotEmpty()) {
+            wordCombinations += tmpWord.windowed(tmpWord.length, 1, true).filter{it.length > 1}.toSet()
+            wordCombinations += tmpWord.reversed().windowed(tmpWord.length, 1, true).map{it.reversed()}.filter{it.length > 1}.toSet()
+            tmpWord = tmpWord.substring(1)
         }
+        //println(wordCombinations)
+
+
+//        var tmpWord = ""
+//        var roots = mutableSetOf<String>()
+//        for (letter in word) {
+//            tmpWord += letter
+//            if (tmpWord in fixDictionary) {
+//                roots.add(tmpWord)
+//            }
+//        }
+        if (wordCombinations.filter{fixDictionary.contains(it)}.any { it.length >= (word.length * .50) }) {
+            howManyCanBeTypedGreaterThan50WithASinglePrefix++
+            uniqueRootsToDoAbove.add(wordCombinations.filter{fixDictionary.contains(it)}.maxBy { it.length})
+        }
+        println("Roots for $word are: ${wordCombinations.filter{fixDictionary.contains(it)}}"
+                + if (wordCombinations.filter{fixDictionary.contains(it)}.any { it.length >= (word.length * .50) }) " AND >=50% of the word can be typed with a single root!!!!!!!!!!" else "")
+        //+ if ( ((wordCombinations.filter {fixDictionary.contains(it) }.size.div(wordCombinations.size)) > 75))  "and >75% could be made of up only roots!" else "")
+//        for (word in words) {
+//            var start = 0
+//            do {
+//                val index = word.indexOf(fix, start)
+//                start = index+1
+//                if (index == 0) {
+//                    println("Word: $word, fix $fix")
+//                    println("Prefix")
+//                } else if (index == word.length - fix.length) {
+//                    println("Word: $word, fix $fix")
+//                    println("Suffix")
+//                } else {
+//                    println("Word: $word, fix $fix")
+//                    println("Infix")
+//                }
+//            } while (index != -1)
+//        }
     }
 
     fun prefixFinder() {
         val SAMPLE_CSV_FILE_PATH =
             "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording (CC1).csv"
-        // TODO -- read in dictionary or list of words
-        val dictionary = mutableSetOf<String>()
+        val wordDictionary = mutableSetOf<String>()
         Files.newBufferedReader(Paths.get(SAMPLE_CSV_FILE_PATH)).use { reader ->
             val csvToBean: CsvToBean<Any?>? = CsvToBeanBuilder<Any?>(reader)
                 .withType(CharaChorderBean::class.java)
@@ -67,36 +113,41 @@ object Main {
             while (csvIterator.hasNext()) {
                 val ccBuilderFile: CharaChorderBean = csvIterator.next() as CharaChorderBean
                 //println(ccBuilderFile.output)
-                ccBuilderFile.output?.let { dictionary.add(it) }
+                //println(ccBuilderFile.output)
+                ccBuilderFile.output?.let { wordDictionary.add(it) }
                 //println("==========================")
             }
         }
-        println(dictionary)
+        println(wordDictionary)
 
 
         // Read prefix for now (TODO -- infix, suffix)
         val prefixDictionary = mutableSetOf<String>()
-        Files.newBufferedReader(Paths.get("src\\main\\resources\\prefix")).use { reader ->
+        //Files.newBufferedReader(Paths.get("src\\main\\resources\\roots")).use { reader ->
+        Files.newBufferedReader(Paths.get("src\\main\\resources\\wikipediaroots")).use { reader ->
+        //Files.newBufferedReader(Paths.get("src\\main\\resources\\prefix")).use { reader ->
             for (line in reader.lines()) {
                 //println(line)
                 prefixDictionary.add(line)
             }
         }
 
-
-
-        for (prefix in prefixDictionary) {
+        for (word in wordDictionary) {
             //val prefix = "de"
 //        val words = mutableSetOf("dog", "deer", "death", "death", "deal", "apple")
 //        println("Values: " + findValues(words, prefix))
-            var values = findValues(dictionary, prefix)
-            if(prefix == "one") {
+            //val values = findValues(wordDictionary, word)
+            findSingleFix(word, prefixDictionary)
+            /*if(prefix == "one") {
                 findSingleFix(dictionary, prefix)
             } else if (prefix.length > 3 && values.isNotEmpty()) {
                 /*println(prefix)
                 println("Values: $values")*/
-            }
+            }*/
         }
+        println(howManyCanBeTypedGreaterThan50WithASinglePrefix)
+        println(uniqueRootsToDoAbove.size)
+
         TODO(
             "'root out' the prefix, infix, and/or suffix and add it to a new file that specifies input and finger " +
                     "you would use to compound chord that chord + any character entry"
@@ -108,23 +159,11 @@ object Main {
         /** Finds impossible chords for CC1 (NOTE: CCL does not have this prohibition)
          *
          */
-        val L_pinky = setOf("numshift", "ambithrow", "shift", "alt")
-        val L_ring = setOf("ctrl", ",", ".", "u")
-        val L_middle= setOf("del", "-", "o", "i")
-        val L_index= setOf("bs", "space", "e", "r")
-        val LT1= setOf("v", "m", "c", "k")
-        val LT2= setOf("click", "g", "z", "w")
-        val RT1= setOf("p", "f", "d", "h")
-        val RT2= setOf("x", "b", "q", "dup")
-        val R_index= setOf("enter", "a", "t", "space")
-        val R_middle= setOf("tab", "l", "n", "j")
-        val R_ring= setOf("ctrl", "y", "s", ";")
-        val R_pinky = setOf("alt", "shift", "ambithrow", "numshift")
-        val fingers = setOf(L_pinky, L_ring, L_middle, L_index, LT1, LT2, RT1, RT2, R_index, R_middle, R_ring, R_pinky)
 
 //        TODO("For each word, iterate through all fingers and make sure that the (inputSet - finger[index]).size >= 3." +
 //                "If not, you can be uber specific and declare what is wrong.")
 
+        //val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Aphit (CC1).csv"
         val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Aphit (CC1).csv"
         //val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Hauntie (CC1).csv"
 
@@ -188,7 +227,8 @@ object Main {
 
     @JvmStatic
     fun main(args: Array<String>) {
+        prefixFinder()
         //findImpossibleChords()
-        parseHtmlForRoots()
+        //parseHtmlForRoots()
     }
 }

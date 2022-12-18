@@ -1,0 +1,6 @@
+# Removes lines from a file that are not greater than 1 character
+:g/^.\{,1\}$/d
+# sort and remove duplicates (may need to run more than once)
+:%s/^\(.*\)\(\n\1\)\+$/\1/
+# sorts unique (but doesn't seem to work in all cases, so use above)
+:sort u
