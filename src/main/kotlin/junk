@@ -1,0 +1,21 @@
+//        for (root in roots) {
+//            var indexes = mutableListOf<Pair<Int, Int>>()
+//            var lastIndex = 0
+//            while (lastIndex != -1) {
+//                lastIndex = word.indexOf(root, lastIndex)
+//                if (lastIndex != -1) {
+//                    indexes.add( Pair(lastIndex, lastIndex+root.length) )
+//                    lastIndex += root.length
+//                }
+//            }
+//            // TODO Pressure is a good word to look up and do test cases on
+//            // TODO -- you must choose chords from roots/fixes that do not have letters that have more than one occurrence as this cannot be chorded...or you can cut the letters, but then it's not a root/prefix really...
+////            if (indexes.size > 1) {
+//            if (word == "pressure") {
+//                println("Indexes for $root for $word are located at $indexes")
+//                for (indexPair in indexes) {
+//                    println(word.substring(indexPair.first, indexPair.second))
+//                }
+////            }
+//            }
+//        }

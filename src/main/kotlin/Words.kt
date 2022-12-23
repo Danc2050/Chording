@@ -1,12 +1,7 @@
 import com.opencsv.bean.CsvToBean
 import com.opencsv.bean.CsvToBeanBuilder
-import org.jsoup.Jsoup
-import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.util.*
-import java.util.function.Function
-import java.util.stream.Collectors
 
 /**
  * This program search for a prefix in a group of words in an optimal way
@@ -30,28 +25,11 @@ val fingers = setOf(L_pinky, L_ring, L_middle, L_index, LT1, LT2, RT1, RT2, R_in
 var howManyCanBeTypedGreaterThan50WithASinglePrefix = 0
 var uniqueRootsToDoAbove = mutableSetOf<String>()
 
+// Percent chorded per root
+var totalPercentChordableInAllWords = 0f
+var totalUnitsInAllWords = 0f
+
 object Main {
-    private fun findValues(words: MutableSet<String>, prefix: String): List<String> {
-        //Transform list to map ignoring repeated words
-        val map: Map<String, String> = words.stream().collect(Collectors.toMap(
-            { obj: String -> obj }, (Function { `val`: String -> `val` }),
-            { `val`: String, val2: String ->
-                println("Value: $`val`, $val2 repeated")
-                `val`
-            })
-        )
-
-        //Transform map to SortedMap to do searching operations
-        val dictionary: SortedMap<String, String> = TreeMap(map)
-        //println("Dictionary: $dictionary")
-
-        //Search for prefix
-        val subMap: SortedMap<*, *> = dictionary.subMap(prefix, prefix + Character.MAX_VALUE)
-
-        //Transform into a collection
-        val values: List<String> = subMap.values.stream().collect(Collectors.toList()) as List<String>
-        return values
-    }
     fun findSingleFix(word: String, fixDictionary: MutableSet<String>) {
         /* For now, keep track of all of our roots in a word...later decide how to build the whole word via a chord and use
             roots of certain length (e.g., max 5).
@@ -63,41 +41,66 @@ object Main {
             wordCombinations += tmpWord.reversed().windowed(tmpWord.length, 1, true).map{it.reversed()}.filter{it.length > 1}.toSet()
             tmpWord = tmpWord.substring(1)
         }
-        //println(wordCombinations)
 
+        var roots = wordCombinations.filter{fixDictionary.contains(it)}
 
-//        var tmpWord = ""
-//        var roots = mutableSetOf<String>()
-//        for (letter in word) {
-//            tmpWord += letter
-//            if (tmpWord in fixDictionary) {
-//                roots.add(tmpWord)
-//            }
-//        }
-        if (wordCombinations.filter{fixDictionary.contains(it)}.any { it.length >= (word.length * .50) }) {
+        // I think there is a bug here...for things like "international" the math doesn't add up
+        if (roots.any { it.length >= (word.length * .50) }) {
             howManyCanBeTypedGreaterThan50WithASinglePrefix++
-            uniqueRootsToDoAbove.add(wordCombinations.filter{fixDictionary.contains(it)}.maxBy { it.length})
+            uniqueRootsToDoAbove.add(roots.maxBy { it.length})
         }
-        println("Roots for $word are: ${wordCombinations.filter{fixDictionary.contains(it)}}"
-                + if (wordCombinations.filter{fixDictionary.contains(it)}.any { it.length >= (word.length * .50) }) " AND >=50% of the word can be typed with a single root!!!!!!!!!!" else "")
-        //+ if ( ((wordCombinations.filter {fixDictionary.contains(it) }.size.div(wordCombinations.size)) > 75))  "and >75% could be made of up only roots!" else "")
-//        for (word in words) {
-//            var start = 0
-//            do {
-//                val index = word.indexOf(fix, start)
-//                start = index+1
-//                if (index == 0) {
-//                    println("Word: $word, fix $fix")
-//                    println("Prefix")
-//                } else if (index == word.length - fix.length) {
-//                    println("Word: $word, fix $fix")
-//                    println("Suffix")
-//                } else {
-//                    println("Word: $word, fix $fix")
-//                    println("Infix")
-//                }
-//            } while (index != -1)
-//        }
+
+        fun createString(word: String, substrings: List<String>): String {
+            // create a mutable list to store the selected substrings
+            val selectedSubstrings = mutableListOf<String>()
+
+            // create a variable to store the current index in the word
+            var currentIndex = 0
+
+            // create a variable to store the end index of the word
+            val endIndex = word.length - 1
+
+            // iterate through the substrings
+            while (currentIndex <= endIndex) {
+                // create a list of substrings that start at the current index
+                val substringsStartingAtCurrentIndex = substrings.filter { word.indexOf(it, currentIndex) == currentIndex }
+
+                // sort the substrings by length in descending order
+                val sortedSubstrings = substringsStartingAtCurrentIndex.sortedByDescending { it.length }
+
+                // check if there are any substrings that start at the current index
+                if (sortedSubstrings.isNotEmpty()) {
+                    // add the longest substring to the list of selected substrings
+                    selectedSubstrings.add(sortedSubstrings.first())
+
+                    // update the current index to the end of the substring
+                    currentIndex += sortedSubstrings.first().length
+                } else {
+                    // if there are no substrings that start at the current index, add the individual letters as substrings
+                    selectedSubstrings.add(word[currentIndex].toString())
+                    currentIndex += 1
+                }
+            }
+            // return the selected substrings joined by '+'
+            return selectedSubstrings.joinToString("+")
+        }
+
+        if (word == "pressure") {
+            println("Roots for $word are: $roots")
+            val output = createString(word, roots)
+            println("output: $output")
+            val numberOfChords = output
+                .split("+")
+                .count { it.length > 1 }
+                .toFloat()
+            var totalUnits = output
+                .split("+")
+                .size.toFloat()
+            println("Percent chorded: ${numberOfChords.div(totalUnits).times(100)}")
+
+            totalPercentChordableInAllWords += numberOfChords
+            totalUnitsInAllWords += totalUnits
+        }
     }
 
     fun prefixFinder() {
@@ -133,26 +136,17 @@ object Main {
         }
 
         for (word in wordDictionary) {
-            //val prefix = "de"
-//        val words = mutableSetOf("dog", "deer", "death", "death", "deal", "apple")
-//        println("Values: " + findValues(words, prefix))
-            //val values = findValues(wordDictionary, word)
             findSingleFix(word, prefixDictionary)
-            /*if(prefix == "one") {
-                findSingleFix(dictionary, prefix)
-            } else if (prefix.length > 3 && values.isNotEmpty()) {
-                /*println(prefix)
-                println("Values: $values")*/
-            }*/
         }
+
         println(howManyCanBeTypedGreaterThan50WithASinglePrefix)
         println(uniqueRootsToDoAbove.size)
+        println("% of all words that can be chorded: ${totalPercentChordableInAllWords.div(totalUnitsInAllWords).times(100)}")
 
         TODO(
             "'root out' the prefix, infix, and/or suffix and add it to a new file that specifies input and finger " +
                     "you would use to compound chord that chord + any character entry"
         )
-
     }
 
     fun findImpossibleChords() {
@@ -195,40 +189,9 @@ object Main {
         }
     }
 
-    fun parseHtmlForRoots() {
-        // https://membean.com/roots/
-        // could just call the html directly with Jsoup, but later...
-        var HTML = File("src/main/resources/html").bufferedReader().readLines().joinToString()
-        val membeanRoots = Jsoup.parse(HTML)
-        val section = membeanRoots.selectXpath("/html/body/div[1]/main/section[2]/div")
-        val rootSet = mutableSetOf<String>()
-        for (element in section) {
-            var children = element.childNodes()
-            for (child in children) {
-                if (child.childNodes().size > 2) {
-                    val root = child.childNode(1)
-                    val string = root.childNode(1).childNode(0).toString().trimStart('-').trimEnd('-')
-                    if (
-                        string.length > 1 // no "-{letter}", "-{letter}-", "{letter}-" roots
-                       )
-                    {
-
-                    // TODO("for now, let's just call prefix, suffix, and infix "roots" and not distinguish among them")
-                    // We use a set because we may have a situation like `-al` `-al-`, `al-` which all produce `al` as a root
-                    rootSet.add(root.childNode(1).childNode(0).toString().trimStart('-').trimEnd('-'))
-                    }
-                    // TODO("Can add definitions in text file also, but later...")
-                    //println(root.childNode(3).childNode(0).toString())
-                }
-            }
-        }
-        File("src/main/resources/roots").writeText(java.lang.String.join("\n", rootSet))
-    }
-
     @JvmStatic
     fun main(args: Array<String>) {
         prefixFinder()
         //findImpossibleChords()
-        //parseHtmlForRoots()
     }
 }
