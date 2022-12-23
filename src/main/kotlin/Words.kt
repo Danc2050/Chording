@@ -85,7 +85,7 @@ object Main {
             return selectedSubstrings.joinToString("+")
         }
 
-        if (word == "pressure") {
+//        if (word == "pressure") {
             println("Roots for $word are: $roots")
             val output = createString(word, roots)
             println("output: $output")
@@ -100,7 +100,7 @@ object Main {
 
             totalPercentChordableInAllWords += numberOfChords
             totalUnitsInAllWords += totalUnits
-        }
+//        }
     }
 
     fun prefixFinder() {
