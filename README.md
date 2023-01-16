@@ -1,4 +1,4 @@
-# CharaChorder "Fix" List
+# Chorder Root/"Fix" List Generator
 Quick points:
 - This repository keeps a list of prefixes and suffixes (infixes to come) and show which words can be chorded based on 
   these "fixs".
