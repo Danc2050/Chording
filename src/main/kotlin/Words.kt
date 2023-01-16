@@ -1,5 +1,7 @@
 import com.opencsv.bean.CsvToBean
 import com.opencsv.bean.CsvToBeanBuilder
+import java.io.File
+import java.lang.Math.abs
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -29,6 +31,9 @@ var uniqueRootsToDoAbove = mutableSetOf<String>()
 var totalPercentChordableInAllWords = 0f
 var totalUnitsInAllWords = 0f
 
+
+var zipChordOutputFile = ""
+
 object Main {
     fun findSingleFix(word: String, fixDictionary: MutableSet<String>) {
         /* For now, keep track of all of our roots in a word...later decide how to build the whole word via a chord and use
@@ -50,6 +55,13 @@ object Main {
             uniqueRootsToDoAbove.add(roots.maxBy { it.length})
         }
 
+        /* TODO -- you must keep track of what words have duplicate letters.. If the duplicate letter length is only == 1,
+           then you can simply add 'dup' to the output. But you must also keep a map of words so you don't have collisions
+           The below is an example of a colission because `dup` is chorded at the same time)
+           var mapOfChordedRoots = mutableMapOf("press" to "pres+dup", "prees: to "pre+dup+s")
+           The below is an example of a check for a case where we would like to introduce `dup`.
+           if (abs(line.toSet().size - line.length) == 1) {
+         */
         fun createString(word: String, substrings: List<String>): String {
             // create a mutable list to store the selected substrings
             val selectedSubstrings = mutableListOf<String>()
@@ -82,12 +94,14 @@ object Main {
                 }
             }
             // return the selected substrings joined by '+'
-            return selectedSubstrings.joinToString("+")
+            //return selectedSubstrings.joinToString("+")
+            return selectedSubstrings.joinToString(" ")
         }
 
 //        if (word == "pressure") {
             println("Roots for $word are: $roots")
             val output = createString(word, roots)
+            zipChordOutputFile += "$output\t $word\n"
             println("output: $output")
             val numberOfChords = output
                 .split("+")
@@ -103,32 +117,72 @@ object Main {
 //        }
     }
 
-    fun prefixFinder() {
-        val SAMPLE_CSV_FILE_PATH =
-            "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording (CC1).csv"
+
+    /**
+        Determines if we could have fewer collisions with shorthand magic...
+        Answer is: Yes, but they don't always make sense
+     */
+    fun shorthandExperiment(csvIterator: MutableIterator<Any?>) {
+        val setOfChords = mutableSetOf<String>()
         val wordDictionary = mutableSetOf<String>()
-        Files.newBufferedReader(Paths.get(SAMPLE_CSV_FILE_PATH)).use { reader ->
-            val csvToBean: CsvToBean<Any?>? = CsvToBeanBuilder<Any?>(reader)
-                .withType(CharaChorderBean::class.java)
-                .withIgnoreLeadingWhiteSpace(true)
-                .build()
-            val csvIterator: MutableIterator<Any?> = csvToBean!!.iterator()
-            while (csvIterator.hasNext()) {
-                val ccBuilderFile: CharaChorderBean = csvIterator.next() as CharaChorderBean
-                //println(ccBuilderFile.output)
-                //println(ccBuilderFile.output)
-                ccBuilderFile.output?.let { wordDictionary.add(it) }
-                //println("==========================")
+        while (csvIterator.hasNext()) {
+            val ccBuilderFile: CharaChorderBean = csvIterator.next() as CharaChorderBean
+            //println(ccBuilderFile.output)
+            //println(ccBuilderFile.output)
+            ccBuilderFile.output?.let { wordDictionary.add(it) }
+            // Trying a t-line shorthand thing here...
+            fun remVowel(str: String): Pair<String, String> {
+                var noVowels = str.replace("[aeiouAEIOU]".toRegex(), "")
+                var noDuplicateConsonantsOrVowels = noVowels.toSet().joinToString("")
+                return Pair(noVowels, noDuplicateConsonantsOrVowels)
             }
+            var tLineChord = remVowel(ccBuilderFile.output.toString())
+            if (!setOfChords.contains(tLineChord.first)) {
+                setOfChords.add(tLineChord.first)
+            } else if (!setOfChords.contains(tLineChord.second)) {
+                setOfChords.add(tLineChord.second)
+            } else {
+                println("DUPLICATE for word ${ccBuilderFile.output}: $tLineChord")
+            }
+            //println(remVowel(ccBuilderFile.output.toString()))
+
+            //println("==========================")
         }
         println(wordDictionary)
+    }
 
-
+    fun seeingHowManyLettersHaveDuplicates() {
+        var moreThanOneLetter = 0
         // Read prefix for now (TODO -- infix, suffix)
+        Files.newBufferedReader(Paths.get("src\\main\\resources\\wikipediaroots")).use { reader ->
+            for (line in reader.lines()) {
+                if (line.toSet().size < line.length) {
+                    moreThanOneLetter++
+                }
+                // needing to add dup here..
+                if (abs(line.toSet().size - line.length) > 1) {
+                    //println(line)
+                    //moreThanOneLetter++
+                }
+            }
+        }
+        println(moreThanOneLetter)
+    }
+
+    /**
+     * Adds all the
+     */
+    fun autoChentryMaker(csvIterator: MutableIterator<Any?>) {
+        val wordDictionary = mutableSetOf<String>()
         val prefixDictionary = mutableSetOf<String>()
+        while (csvIterator.hasNext()) {
+            val ccBuilderFile: CharaChorderBean = csvIterator.next() as CharaChorderBean
+            ccBuilderFile.output?.let { wordDictionary.add(it) }
+        }
+        // Read prefix for now (TODO -- infix, suffix)
         //Files.newBufferedReader(Paths.get("src\\main\\resources\\roots")).use { reader ->
         Files.newBufferedReader(Paths.get("src\\main\\resources\\wikipediaroots")).use { reader ->
-        //Files.newBufferedReader(Paths.get("src\\main\\resources\\prefix")).use { reader ->
+            //Files.newBufferedReader(Paths.get("src\\main\\resources\\prefix")).use { reader ->
             for (line in reader.lines()) {
                 //println(line)
                 prefixDictionary.add(line)
@@ -138,10 +192,27 @@ object Main {
         for (word in wordDictionary) {
             findSingleFix(word, prefixDictionary)
         }
+        File("src/main/kotlin/ZipChordDictionary.txt").writeText(zipChordOutputFile)
+    }
+
+    fun prefixFinder() {
+        val SAMPLE_CSV_FILE_PATH =
+            "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording (CC1).csv"
+        Files.newBufferedReader(Paths.get(SAMPLE_CSV_FILE_PATH)).use { reader ->
+            val csvToBean: CsvToBean<Any?>? = CsvToBeanBuilder<Any?>(reader)
+                .withType(CharaChorderBean::class.java)
+                .withIgnoreLeadingWhiteSpace(true)
+                .build()
+            val csvIterator: MutableIterator<Any?> = csvToBean!!.iterator()
+            // shorthandExperiment(csvIterator)
+            autoChentryMaker(csvIterator)
+        }
+
+
 
         println(howManyCanBeTypedGreaterThan50WithASinglePrefix)
         println(uniqueRootsToDoAbove.size)
-        println("% of all words that can be chorded: ${totalPercentChordableInAllWords.div(totalUnitsInAllWords).times(100)}")
+        println("% of all chords in all words: ${totalPercentChordableInAllWords.div(totalUnitsInAllWords).times(100)}")
 
         TODO(
             "'root out' the prefix, infix, and/or suffix and add it to a new file that specifies input and finger " +
