@@ -15,6 +15,7 @@ Over 60 percent of all English words have Greek or Latin roots. In the vocabular
 Some modification of prefix and suffix list from this [gist](https://gist.github.com/kevinflo/5cfe332a7eb2239a6da6).
 Pretty comprehensive list of roots (1020 of them, not considering prefix/infix/suffix duplicates): https://membean.com/roots/
 Holy grail of Latin and Greek roots in English language (oh my goodness): https://en.wikipedia.org/wiki/List_of_Greek_and_Latin_roots_in_English
+Extreme amountt of words here: https://kaikki.org/dictionary/English/index.html
 
 Java 2 Kotlin conversion from this [code](https://github.com/javiermartinezruiz/SearchPrefixInDictionary/blob/master/src/com/company/Main.java) 
 to find words that match a prefix (to show usefulness of chording in "fixs").

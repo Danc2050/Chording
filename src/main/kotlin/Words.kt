@@ -1,3 +1,4 @@
+
 import com.opencsv.bean.CsvToBean
 import com.opencsv.bean.CsvToBeanBuilder
 import java.io.File
@@ -34,8 +35,13 @@ var totalUnitsInAllWords = 0f
 
 var zipChordOutputFile = ""
 
+// {sorted chords strung together as string : Pair(Original word, Chord + Character entry list) }
+val sortPiecesTest = mutableMapOf<String, Pair<String, List<String>>>()
+var duplicateCount = 0L
+
+
 object Main {
-    fun findSingleFix(word: String, fixDictionary: MutableSet<String>) {
+    fun findSingleFix(word: String, fixDictionary: MutableSet<String>, sortPieces: Boolean? = false) {
         /* For now, keep track of all of our roots in a word...later decide how to build the whole word via a chord and use
             roots of certain length (e.g., max 5).
          */
@@ -62,9 +68,9 @@ object Main {
            The below is an example of a check for a case where we would like to introduce `dup`.
            if (abs(line.toSet().size - line.length) == 1) {
          */
-        fun createString(word: String, substrings: List<String>): String {
+        fun createString(word: String, substrings: List<String>, sortPieces: Boolean? = false): String {
             // create a mutable list to store the selected substrings
-            val selectedSubstrings = mutableListOf<String>()
+            var selectedSubstrings = mutableListOf<String>()
 
             // create a variable to store the current index in the word
             var currentIndex = 0
@@ -93,28 +99,42 @@ object Main {
                     currentIndex += 1
                 }
             }
+
+            if (sortPieces == true) {
+                selectedSubstrings = selectedSubstrings.map { it.toCharArray().sortedWith(compareBy {it}).joinToString("") }.toMutableList()
+                //selectedSubstrings.forEachIndexed { index, element -> selectedSubstrings[index] = element.toCharArray().sorted().joinToString("") }
+            }
+
             // return the selected substrings joined by '+'
             //return selectedSubstrings.joinToString("+")
             return selectedSubstrings.joinToString(" ")
         }
 
-//        if (word == "pressure") {
-            println("Roots for $word are: $roots")
-            val output = createString(word, roots)
-            zipChordOutputFile += "$output\t $word\n"
-            println("output: $output")
-            val numberOfChords = output
-                .split("+")
-                .count { it.length > 1 }
-                .toFloat()
-            var totalUnits = output
-                .split("+")
-                .size.toFloat()
-            println("Percent chorded: ${numberOfChords.div(totalUnits).times(100)}")
 
-            totalPercentChordableInAllWords += numberOfChords
-            totalUnitsInAllWords += totalUnits
-//        }
+        //println("Roots for $word are: $roots")
+        val output = createString(word, roots, sortPieces)
+        zipChordOutputFile += "$output\t $word\n"
+        if (sortPieces == true) {
+            // take spaces out to compare string... is it's munged form identical to that of another ones munged form?
+            if (sortPiecesTest.contains(output.split(" ").joinToString(""))) {
+                println("DUPLICATE EXISTS for: $output")
+                duplicateCount++
+            } else {
+                sortPiecesTest[output.split(" ").joinToString("")] = Pair(word, output.split(" "))
+            }
+        }
+        //println("output: $output")
+        val numberOfChords = output
+            .split("+")
+            .count { it.length > 1 }
+            .toFloat()
+        var totalUnits = output
+            .split("+")
+            .size.toFloat()
+        //println("Percent chorded: ${numberOfChords.div(totalUnits).times(100)}")
+
+        totalPercentChordableInAllWords += numberOfChords
+        totalUnitsInAllWords += totalUnits
     }
 
 
@@ -195,6 +215,60 @@ object Main {
         File("src/main/kotlin/ZipChordDictionary.txt").writeText(zipChordOutputFile)
     }
 
+    fun rootAnagramTest(csvIterator: MutableIterator<Any?>) {
+        /* Here's a theory: if I chord + character entry a word and sort each entry as I go (chord...character...),
+            is the resulting string unique? Can I then map it to the word?
+
+            Take `aerospace` for example.
+            If I decide the chord + character entry is: [`aer`, `o`, `space`] the sorted version is [`aer`, `o`, `aceps`]
+            and the final word is 'aeroaceps', which is not a word.
+
+            The sum result means I can mash letters on my keyboard to form the word and get the word...
+            One could take this even further perhaps.. if I mash the keys in chords in any order, would I ever get a collision for
+             the word aerospace? Or is it truly unique? How many words are like this? Most 5 letter words?
+         */
+
+        // USING CHARACHORDER'S DICTIONARY HERE
+        val wordDictionary = mutableSetOf<String>()
+        val prefixDictionary = mutableSetOf<String>()
+        while (csvIterator.hasNext()) {
+            val ccBuilderFile: CharaChorderBean = csvIterator.next() as CharaChorderBean
+            ccBuilderFile.output?.let { wordDictionary.add(it) }
+        }
+        //Files.newBufferedReader(Paths.get("src\\main\\resources\\roots")).use { reader ->
+        Files.newBufferedReader(Paths.get("src\\main\\resources\\wikipediaroots")).use { reader ->
+            //Files.newBufferedReader(Paths.get("src\\main\\resources\\prefix")).use { reader ->
+            for (line in reader.lines()) {
+                //println(line)
+                prefixDictionary.add(line)
+            }
+        }
+
+        // WIKIPEDIA ALL WORDS
+          // NOTE: this function takes very long to run if you are using it for yourself
+//        Files.newBufferedReader(Paths.get("src\\main\\resources\\WikiDictionary.txt")).use { reader ->
+//            for (line in reader.lines()) {
+//                //println(line)
+//                wordDictionary.add(line)
+//            }
+//        }
+//
+//        Files.newBufferedReader(Paths.get("src\\main\\resources\\wikipediaroots")).use { reader ->
+//            for (line in reader.lines()) {
+//                //println(line)
+//                prefixDictionary.add(line)
+//            }
+//        }
+
+
+        for (word in wordDictionary) {
+            findSingleFix(word, prefixDictionary, sortPieces = true)
+        }
+
+        println(sortPiecesTest)
+        println("DONE")
+    }
+
     fun prefixFinder() {
         val SAMPLE_CSV_FILE_PATH =
             "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording (CC1).csv"
@@ -205,7 +279,8 @@ object Main {
                 .build()
             val csvIterator: MutableIterator<Any?> = csvToBean!!.iterator()
             // shorthandExperiment(csvIterator)
-            autoChentryMaker(csvIterator)
+            //autoChentryMaker(csvIterator)
+            rootAnagramTest(csvIterator)
         }
 
 
@@ -213,11 +288,12 @@ object Main {
         println(howManyCanBeTypedGreaterThan50WithASinglePrefix)
         println(uniqueRootsToDoAbove.size)
         println("% of all chords in all words: ${totalPercentChordableInAllWords.div(totalUnitsInAllWords).times(100)}")
+    }
 
-        TODO(
-            "'root out' the prefix, infix, and/or suffix and add it to a new file that specifies input and finger " +
-                    "you would use to compound chord that chord + any character entry"
-        )
+    /** Here is my thinking: if we have a sequence of input BEFORE a (white)space, then we can sort that input to a chord.
+     * Is the chord unique? Let's find out!
+     * */
+    fun sortedWordTest() {
     }
 
     fun findImpossibleChords() {
