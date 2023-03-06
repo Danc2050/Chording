@@ -68,7 +68,7 @@ object Main {
            The below is an example of a check for a case where we would like to introduce `dup`.
            if (abs(line.toSet().size - line.length) == 1) {
          */
-        fun createString(word: String, substrings: List<String>, sortPieces: Boolean? = false): String {
+        fun createStringUsingRootChordingMethod(word: String, substrings: List<String>, sortPieces: Boolean? = false): String {
             // create a mutable list to store the selected substrings
             var selectedSubstrings = mutableListOf<String>()
 
@@ -110,14 +110,27 @@ object Main {
             return selectedSubstrings.joinToString(" ")
         }
 
+        fun splitByThreeOrTwoTheory(word: String): String {
+            if (word.length < 2) {
+                return word
+            } else {
+                val splitSize = if(word.length >= 3) 3 else 2
+                val split = word.chunked(splitSize)
+                val sortedSplit = split.map { it.toList().sorted().joinToString("") }
+                return sortedSplit.joinToString("")
+            }
+        }
+
 
         //println("Roots for $word are: $roots")
-        val output = createString(word, roots, sortPieces)
+        //val output = createStringUsingRootChordingMethod(word, roots, sortPieces)
+
+        val output = splitByThreeOrTwoTheory(word)
         zipChordOutputFile += "$output\t $word\n"
         if (sortPieces == true) {
             // take spaces out to compare string... is it's munged form identical to that of another ones munged form?
             if (sortPiecesTest.contains(output.split(" ").joinToString(""))) {
-                println("DUPLICATE EXISTS for: $output")
+                println("DUPLICATE EXISTS for word: $word. Is already in our dictionary as: ${sortPiecesTest[(output.split(" ").joinToString(""))]}")
                 duplicateCount++
             } else {
                 sortPiecesTest[output.split(" ").joinToString("")] = Pair(word, output.split(" "))
@@ -236,7 +249,7 @@ object Main {
             ccBuilderFile.output?.let { wordDictionary.add(it) }
         }
         //Files.newBufferedReader(Paths.get("src\\main\\resources\\roots")).use { reader ->
-        Files.newBufferedReader(Paths.get("src\\main\\resources\\wikipediaroots")).use { reader ->
+        Files.newBufferedReader(Paths.get("src\\main\\resources\\frequent")).use { reader ->
             //Files.newBufferedReader(Paths.get("src\\main\\resources\\prefix")).use { reader ->
             for (line in reader.lines()) {
                 //println(line)
@@ -269,9 +282,84 @@ object Main {
         println("DONE")
     }
 
+    /* Function finds all combinations of a word, without any special note as to roots or anything.
+        So a word like `the` can be typed in a chord the following ways: [['ht', 'e'], ['t', 'eh']].
+        So here is the algorithm when a user attempts to type the word `the`:
+         - `th`: it will be sorted and output `ht`
+         - `e`, it will be sorted or sorting is skipped since it's one letter long
+         - final output when sorted would be `hte`, which would then be an entry into a dictionary that would map to `the`
+     */
+    fun combinationsRegardlessOfRoot(csvIterator: MutableIterator<Any?>): Boolean {
+        val wordDictionary = mutableSetOf<String>()
+//        Files.newBufferedReader(Paths.get("src\\main\\resources\\WikiDictionary.txt")).use { reader ->
+//            for (line in reader.lines()) {
+//                //println(line)
+//                wordDictionary.add(line)
+//            }
+//        }
+
+        val minChordLength = 2
+        val maxChordLength = 4
+
+        while (csvIterator.hasNext()) {
+            val ccBuilderFile: CharaChorderBean = csvIterator.next() as CharaChorderBean
+            ccBuilderFile.output?.let { word ->
+                if (word.length <= 4) {
+                    print("$word ")
+                }
+                wordDictionary.add(word)
+            }
+        }
+        println()
+
+        val setOfWords = mutableSetOf<String>()
+
+        val wordsThatConflict = mutableSetOf<String>()
+        var conflicts = 0
+//        val accomodation = File("src/main/kotlin/accommodation.txt")
+
+        File("src/main/kotlin/chords.txt").printWriter().use { writer ->
+            for (word in wordDictionary) {
+                //val res = sortedCombinations(word)
+                val res = findUniqueStringsFromCombiningChunkedChords(word, minChordLength, maxChordLength)
+//                if (word == "accommodation") {
+//                    accomodation.writeText(res.joinToString(","))
+//                }
+                if (word == "teen") {
+                    println(res)
+                }
+
+
+                for (permutedString in res) {
+                    if (permutedString in setOfWords) {
+                        println("$permutedString is already in dictionary for word $word!!!")
+                        conflicts++
+                        wordsThatConflict.add(word)
+                    } else {
+                        // normally I'd say don't add the permutation that is the string itself
+                        //  but we could chord that string at once (sometimes you get lucky and hit the letters in order
+                        //  so we add it here anyway. It's also useful for autospacing in Zipchord
+                        setOfWords.add(permutedString)
+                        writer.println("$permutedString\t$word")
+                    }
+                }
+                //println("$word to ${res}")
+            }
+        }
+
+        println("this many conflicts: $conflicts")
+        println("this many root words: $wordsThatConflict")
+
+        return true
+    }
+
+
     fun prefixFinder() {
         val SAMPLE_CSV_FILE_PATH =
-            "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording (CC1).csv"
+//            "src\\main\\resources\\WikiDictionary.txt"
+            "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording edited (CC1).csv"
+//        "src\\main\\resources\\CharaChorder Builder (BETA) - Aphit (CC1).csv"
+
         Files.newBufferedReader(Paths.get(SAMPLE_CSV_FILE_PATH)).use { reader ->
             val csvToBean: CsvToBean<Any?>? = CsvToBeanBuilder<Any?>(reader)
                 .withType(CharaChorderBean::class.java)
@@ -280,7 +368,9 @@ object Main {
             val csvIterator: MutableIterator<Any?> = csvToBean!!.iterator()
             // shorthandExperiment(csvIterator)
             //autoChentryMaker(csvIterator)
-            rootAnagramTest(csvIterator)
+            combinationsRegardlessOfRoot(csvIterator)
+            //rootAnagramTest(csvIterator)
+
         }
 
 
@@ -305,7 +395,7 @@ object Main {
 //                "If not, you can be uber specific and declare what is wrong.")
 
         //val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Aphit (CC1).csv"
-        val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Aphit (CC1).csv"
+        val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Daniel Compound Chording (CC1).csv"
         //val SAMPLE_CSV_FILE_PATH = "src\\main\\resources\\CharaChorder Builder (BETA) - Hauntie (CC1).csv"
 
         // TODO -- read in dictionary or list of words
@@ -336,9 +426,103 @@ object Main {
         }
     }
 
+    /*
+     Essentially we want all permutations of a string that one could chord. This makes more real the thought of typing
+     in words, by typing in chunks of those words.
+      Notes:
+        - We don't want to match on all permutations of a string, only the chordable ones (n=4 in this example)
+        - So for example we take the first 4 letters of a word (typing 4 letters at a time) and we realize those letters can be typed in any order
+            - Foe example for the word `about` never would someone type 'auobt' (in any chorded or character entry combination) as they would type only the first 4 letters,
+                'abou'` and may mash them in any order ('auob', 'boau', etc.) + the remaining string 't'
+        - The goal would be at the end of a user chording/character "entrying" this string AND pressing space, they would then
+          have a unique string and then some program would take that unique string and know that a chorded + character entry COULD
+          match to the word (e.g., `about`). This program generates that list of unique strings
+     */
+    fun findUniqueStringsFromCombiningChunkedChords(word: String, minChordLength: Int, maxChordLength: Int): MutableSet<String> {
+        // Amount we'd like to chunk our word by...can be configurable later, but we do a max of 4 letters at a time or the length of the word if < 5
+        var n = if (word.length <= maxChordLength) word.length else maxChordLength
+        val variationsOfChunks = mutableListOf<String>()
+        val variationStringsFromCombiningChunks = mutableSetOf<String>()
+
+        fun combineLists(lists: List<List<String>>): List<String> {
+            if (lists.isEmpty()) {
+                return emptyList()
+            }
+
+            val result = mutableListOf<String>()
+
+            fun combineHelper(currentIndex: Int, currentString: String) {
+                if (currentIndex == lists.size) {
+                    result.add(currentString)
+                    return
+                }
+
+                for (element in lists[currentIndex]) {
+                    combineHelper(currentIndex + 1, currentString + element)
+                }
+            }
+            combineHelper(0, "")
+            return result
+        }
+
+        for (i in n downTo minChordLength) {
+            //println("PERMUTATION ${abs(n - i)}")
+            val chunks = word.chunked(i)
+            // in this case, we just permute all the letters as they all can be pressed in one go, without combining them with other presses
+            if (chunks.size == 1) {
+                variationStringsFromCombiningChunks.addAll(chunks[0].permute())
+            } else {
+                val outputs = combineLists(chunks.map { it.permutations().toList() })
+                variationStringsFromCombiningChunks.addAll(outputs)
+            }
+        }
+//        println("VARIATIONS OF CHUNKS")
+//        println(variationStringsFromCombiningChunks)
+
+        //println("REVERSED")
+        // chunk backwards (takes care of odd length words)
+        for (i in n downTo minChordLength) {
+            val chunks = word.reversed().chunked(i).reversed()
+            // in this case, we just permute all the letters as they all can be pressed in one go, without combining them with other presses
+            if (chunks.size == 1) {
+                variationStringsFromCombiningChunks.addAll(chunks[0].permute())
+            } else {
+                val outputs = combineLists(chunks.map { it.permutations().toList() })
+                variationStringsFromCombiningChunks.addAll(outputs)
+            }
+        }
+        return variationStringsFromCombiningChunks
+
+//        println("VARIATIONS OF CHUNKS")
+//        println(variationStringsFromCombiningChunks)
+        //println("All variations of about")
+        //println("about".permute())
+    }
+
+    fun String.permute(result: String = ""): List<String> =
+        if (isEmpty()) listOf(result) else flatMapIndexed { i, c -> removeRange(i, i + 1).permute(result + c) }
+
+    fun String.permutations(): List<String> {
+        if (length == 1) {
+            return listOf(this)
+        }
+        val permutations = mutableSetOf<String>()
+        for (i in indices) {
+            val c = this[i]
+            val remaining = substring(0, i) + substring(i + 1)
+            for (perm in remaining.permutations()) {
+                permutations.add(c + perm)
+            }
+        }
+        return permutations.toList()
+    }
     @JvmStatic
     fun main(args: Array<String>) {
         prefixFinder()
+        //println(findUniqueStringsFromCombiningChunkedChords("about", 4))
+//        println(smallTest("the", 4))
+        //println("about".permute())
+
         //findImpossibleChords()
     }
 }

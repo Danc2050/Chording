@@ -18,6 +18,16 @@ Extreme amountt of words here: https://kaikki.org/dictionary/English/index.html
 
 Java 2 Kotlin conversion from this [code](https://github.com/javiermartinezruiz/SearchPrefixInDictionary/blob/master/src/com/company/Main.java) 
 to find words that match a prefix (to show usefulness of chording in "fixs").
+
+Great frequency list for English: https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists/A_Frequency_Dictionary_of_Contemporary_American_English
+
+## Avoiding Collisions Randomness
+You can add more randomness to chorded words perhaps by indicating in your system the length of them or some other unique property.
+
+This could be triggered by a letter press or key that has no bearing on the typed words…or you could remap some key or modifier, whatever you can do to indicate to your program what is occurring and avoid a collision
+
+This would provide uniqueness and cut down on collisions in your current system when autogenerating (and triggering) a chord library.
+
 ## Future work 
 Just a loose idea here. More prefixes, infixes, and suffixes should be added to completely grasp the English language.
 
